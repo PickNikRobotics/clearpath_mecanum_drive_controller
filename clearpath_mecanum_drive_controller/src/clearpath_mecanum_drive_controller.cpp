@@ -110,6 +110,13 @@ controller_interface::CallbackReturn MecanumDriveController::on_configure(
 
   odometry_.init(
     get_node()->now(), {params_.kinematics.base_frame_offset.x, params_.kinematics.base_frame_offset.y, params_.kinematics.base_frame_offset.theta});
+
+  if (params_.body_frame_control ^ params_.body_frame_yaw_joint.empty() )
+  {
+    RCLCPP_FATAL(get_node()->get_logger(), "When body_frame_control is set to true, the body_frame_yaw_joint parameter must also be set.");
+    return CallbackReturn::FAILURE;
+  }
+
   // Set wheel params for the odometry computation
   odometry_.setWheelsParams(
     params_.kinematics.sum_of_robot_center_projection_on_X_Y_axis,
@@ -289,6 +296,10 @@ controller_interface::InterfaceConfiguration MecanumDriveController::state_inter
   {
     state_interfaces_config.names.push_back(joint + "/" + params_.interface_name);
   }
+  if (!params_.body_frame_yaw_joint.empty())
+  {
+    state_interfaces_config.names.push_back(params_.body_frame_yaw_joint + "/" + hardware_interface::HW_IF_POSITION);
+  }
 
   return state_interfaces_config;
 }
@@ -426,6 +437,14 @@ controller_interface::return_type MecanumDriveController::update_and_write_comma
     odometry_.update(
       wheel_front_left_vel, wheel_back_left_vel, wheel_back_right_vel, wheel_front_right_vel,
       period.seconds());
+  }
+
+  if (!params_.body_frame_control && !params_.body_frame_yaw_joint.empty() && state_interfaces_.size() >= 5){
+    const double theta = state_interfaces_[4].get_value();
+    const double rotated_x = std::cos(-theta)*reference_interfaces_[0] - std::sin(-theta)*reference_interfaces_[1];
+    const double rotated_y = std::sin(-theta)*reference_interfaces_[0] + std::cos(-theta)*reference_interfaces_[1];
+    reference_interfaces_[0] = rotated_x;
+    reference_interfaces_[1] = rotated_y;
   }
 
   // INVERSE KINEMATICS (move robot).

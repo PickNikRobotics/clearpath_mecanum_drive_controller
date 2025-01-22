@@ -107,3 +107,16 @@ clearpath_mecanum_drive_controller:
     description: "Diagonal values of pose covariance matrix.",
     read_only: false,
   }
+  body_frame_control: {
+    type: bool,
+    default_value: true,
+    description: "Specify if the velocity control is in the body frame or world frame.",
+    read_only: true,
+  }
+  body_frame_yaw_joint: {
+    type: string,
+    default_value: "",
+    description: "Specify the state interface name to be used as the body frame yaw joint. This is used only if the 
+    body_frame_control parameter is enabled. The interface must be a position interface.",
+    read_only: true,
+  }
