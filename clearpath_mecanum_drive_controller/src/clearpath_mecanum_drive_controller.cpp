@@ -113,7 +113,8 @@ controller_interface::CallbackReturn MecanumDriveController::on_configure(
 
   if (params_.body_frame_control ^ params_.body_frame_yaw_joint.empty() )
   {
-    RCLCPP_FATAL(get_node()->get_logger(), "When body_frame_control is set to true, the body_frame_yaw_joint parameter must also be set.");
+    RCLCPP_FATAL(get_node()->get_logger(), "The `body_frame_yaw_joint` parameter must also be set if and only if the "
+                                           "`body_frame_control` parameter is set to true.");
     return CallbackReturn::FAILURE;
   }
 
@@ -307,19 +308,14 @@ controller_interface::InterfaceConfiguration MecanumDriveController::state_inter
 std::vector<hardware_interface::CommandInterface>
 MecanumDriveController::on_export_reference_interfaces()
 {
-  reference_interfaces_.resize(NR_REF_ITFS, std::numeric_limits<double>::quiet_NaN());
-
   std::vector<hardware_interface::CommandInterface> reference_interfaces;
-
+  reference_interfaces_.resize(NR_REF_ITFS, std::numeric_limits<double>::quiet_NaN());
   reference_interfaces.reserve(reference_interfaces_.size());
-
-  std::vector<std::string> reference_interface_names = {
-    "linear/x/velocity", "linear/y/velocity", "angular/z/velocity"};
 
   for (size_t i = 0; i < reference_interfaces_.size(); ++i)
   {
-    reference_interfaces.push_back(hardware_interface::CommandInterface(
-      get_node()->get_name(), reference_interface_names[i], &reference_interfaces_[i]));
+    reference_interfaces.push_back(hardware_interface::CommandInterface(get_node()->get_name(),
+    params_.reference_joint_names[i] + "/" + hardware_interface::HW_IF_VELOCITY, &reference_interfaces_[i]));
   }
 
   return reference_interfaces;
