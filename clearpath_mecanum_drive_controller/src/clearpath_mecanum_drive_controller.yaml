@@ -33,7 +33,7 @@ clearpath_mecanum_drive_controller:
 
   reference_joint_names: {
     type: string_array,
-    default_value: ["linear/x/velocity", "linear/y/velocity", "angular/z/velocity"],
+    default_value: ["linear/x", "linear/y", "angular/z"],
     description: "The names of the reference joints to be exported for controller chaining.",
     read_only: true,
     validation: {
