@@ -2,8 +2,8 @@
 Changelog for package clearpath_mecanum_drive_controller
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.1.1 (2025-04-09)
+------------------
 * Fix base_frame_offset uninitialized
 * Contributors: Arend-Jan van Hilten
 
