@@ -107,7 +107,7 @@ controller_interface::CallbackReturn MecanumDriveController::on_configure(
       params_.command_joint_names.size(), state_joint_names_.size());
     return CallbackReturn::FAILURE;
   }
-  
+
   odometry_.init(
     get_node()->now(), {params_.kinematics.base_frame_offset.x, params_.kinematics.base_frame_offset.y, params_.kinematics.base_frame_offset.theta});
   // Set wheel params for the odometry computation
@@ -339,7 +339,7 @@ controller_interface::CallbackReturn MecanumDriveController::on_deactivate(
 {
   for (size_t i = 0; i < NR_CMD_ITFS; ++i)
   {
-    command_interfaces_[i].set_value(std::numeric_limits<double>::quiet_NaN());
+    command_interfaces_[i].set_value(0.0);
   }
   return controller_interface::CallbackReturn::SUCCESS;
 }
