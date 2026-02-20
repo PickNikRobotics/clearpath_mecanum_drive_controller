@@ -100,9 +100,15 @@ TEST_F(MecanumDriveControllerTest, when_controller_configured_expect_properly_ex
   {
     const std::string ref_itf_name = std::string(controller_->get_node()->get_name()) +
                                      std::string("/") + reference_interface_names[i];
+#ifdef ROS_DISTRO_JAZZY
+    EXPECT_EQ(reference_interfaces[i]->get_name(), ref_itf_name);
+    EXPECT_EQ(reference_interfaces[i]->get_prefix_name(), controller_->get_node()->get_name());
+    EXPECT_EQ(reference_interfaces[i]->get_interface_name(), reference_interface_names[i]);
+#else
     EXPECT_EQ(reference_interfaces[i].get_name(), ref_itf_name);
     EXPECT_EQ(reference_interfaces[i].get_prefix_name(), controller_->get_node()->get_name());
     EXPECT_EQ(reference_interfaces[i].get_interface_name(), reference_interface_names[i]);
+#endif
   }
 }
 
@@ -149,11 +155,19 @@ TEST_F(
 
   ASSERT_EQ(controller_->on_configure(rclcpp_lifecycle::State()), NODE_SUCCESS);
   ASSERT_EQ(controller_->on_activate(rclcpp_lifecycle::State()), NODE_SUCCESS);
+#ifdef ROS_DISTRO_JAZZY
+  ASSERT_EQ(controller_->command_interfaces_[NR_CMD_ITFS - 4].get_optional<double>().value(), 101.101);
+  ASSERT_EQ(controller_->on_deactivate(rclcpp_lifecycle::State()), NODE_SUCCESS);
+  ASSERT_TRUE(std::isnan(controller_->command_interfaces_[NR_CMD_ITFS - 4].get_optional<double>().value()));
+  ASSERT_EQ(controller_->on_activate(rclcpp_lifecycle::State()), NODE_SUCCESS);
+  ASSERT_TRUE(std::isnan(controller_->command_interfaces_[NR_CMD_ITFS - 4].get_optional<double>().value()));
+#else
   ASSERT_EQ(controller_->command_interfaces_[NR_CMD_ITFS - 4].get_value(), 101.101);
   ASSERT_EQ(controller_->on_deactivate(rclcpp_lifecycle::State()), NODE_SUCCESS);
   ASSERT_TRUE(std::isnan(controller_->command_interfaces_[NR_CMD_ITFS - 4].get_value()));
   ASSERT_EQ(controller_->on_activate(rclcpp_lifecycle::State()), NODE_SUCCESS);
   ASSERT_TRUE(std::isnan(controller_->command_interfaces_[NR_CMD_ITFS - 4].get_value()));
+#endif
 
   ASSERT_EQ(
     controller_->update(controller_->get_node()->now(), rclcpp::Duration::from_seconds(0.01)),
@@ -373,7 +387,11 @@ TEST_F(
   }
   for (size_t i = 0; i < controller_->command_interfaces_.size(); ++i)
   {
+#ifdef ROS_DISTRO_JAZZY
+    EXPECT_EQ(controller_->command_interfaces_[i].get_optional<double>().value(), 0.0);
+#else
     EXPECT_EQ(controller_->command_interfaces_[i].get_value(), 0.0);
+#endif
   }
 
   std::shared_ptr<ControllerReferenceMsg> msg_2 = std::make_shared<ControllerReferenceMsg>();
@@ -411,7 +429,11 @@ TEST_F(
 
   for (size_t i = 0; i < controller_->command_interfaces_.size(); ++i)
   {
+#ifdef ROS_DISTRO_JAZZY
+    EXPECT_EQ(controller_->command_interfaces_[i].get_optional<double>().value(), 3.0);
+#else
     EXPECT_EQ(controller_->command_interfaces_[i].get_value(), 3.0);
+#endif
   }
 }
 
@@ -470,7 +492,11 @@ TEST_F(
   }
   for (size_t i = 0; i < controller_->command_interfaces_.size(); ++i)
   {
+#ifdef ROS_DISTRO_JAZZY
+    EXPECT_EQ(controller_->command_interfaces_[i].get_optional<double>().value(), 6.0);
+#else
     EXPECT_EQ(controller_->command_interfaces_[i].get_value(), 6.0);
+#endif
   }
 }
 

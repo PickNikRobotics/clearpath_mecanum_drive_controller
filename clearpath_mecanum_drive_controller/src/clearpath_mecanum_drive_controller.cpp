@@ -17,6 +17,7 @@
 #include <limits>
 #include <memory>
 #include <string>
+#include <tuple>
 #include <vector>
 
 #include "controller_interface/helpers.hpp"
@@ -235,22 +236,25 @@ controller_interface::CallbackReturn MecanumDriveController::on_configure(
   return controller_interface::CallbackReturn::SUCCESS;
 }
 
-void MecanumDriveController::reference_callback(const std::shared_ptr<ControllerReferenceMsg> msg)
+void MecanumDriveController::reference_callback(const std::shared_ptr<const ControllerReferenceMsg> msg)
 {
+  // Copy message to allow mutation (setting timestamp, resetting values)
+  auto mutable_msg = std::make_shared<ControllerReferenceMsg>(*msg);
+
   // if no timestamp provided use current time for command timestamp
-  if (msg->header.stamp.sec == 0 && msg->header.stamp.nanosec == 0u)
+  if (mutable_msg->header.stamp.sec == 0 && mutable_msg->header.stamp.nanosec == 0u)
   {
     RCLCPP_WARN(
       get_node()->get_logger(),
       "Timestamp in header is missing, using current time as command "
       "timestamp.");
-    msg->header.stamp = get_node()->now();
+    mutable_msg->header.stamp = get_node()->now();
   }
-  const auto age_of_last_command = get_node()->now() - msg->header.stamp;
+  const auto age_of_last_command = get_node()->now() - mutable_msg->header.stamp;
 
   if (ref_timeout_ == rclcpp::Duration::from_seconds(0) || age_of_last_command <= ref_timeout_)
   {
-    input_ref_.writeFromNonRT(msg);
+    input_ref_.writeFromNonRT(mutable_msg);
   }
   else
   {
@@ -258,16 +262,17 @@ void MecanumDriveController::reference_callback(const std::shared_ptr<Controller
       get_node()->get_logger(),
       "Received message has timestamp %.10f older for %.10f which is more then allowed timeout "
       "(%.4f).",
-      rclcpp::Time(msg->header.stamp).seconds(), age_of_last_command.seconds(),
+      rclcpp::Time(mutable_msg->header.stamp).seconds(), age_of_last_command.seconds(),
       ref_timeout_.seconds());
-    reset_controller_reference_msg(msg, get_node());
+    reset_controller_reference_msg(mutable_msg, get_node());
   }
 }
 
-void MecanumDriveController::reference_unstamped_callback(const std::shared_ptr<ControllerReferenceUnstampedMsg> msg)
+void MecanumDriveController::reference_unstamped_callback(const std::shared_ptr<const ControllerReferenceUnstampedMsg> msg)
 {
+  auto mutable_msg = std::make_shared<ControllerReferenceUnstampedMsg>(*msg);
   cmd_timestamp_ = get_node()->now();
-  input_ref_unstamped_.writeFromNonRT(msg);
+  input_ref_unstamped_.writeFromNonRT(mutable_msg);
 }
 
 controller_interface::InterfaceConfiguration
@@ -346,12 +351,21 @@ controller_interface::CallbackReturn MecanumDriveController::on_deactivate(
 {
   for (size_t i = 0; i < NR_CMD_ITFS; ++i)
   {
+#ifdef ROS_DISTRO_JAZZY
+    std::ignore = command_interfaces_[i].set_value(0.0);
+#else
     command_interfaces_[i].set_value(0.0);
+#endif
   }
   return controller_interface::CallbackReturn::SUCCESS;
 }
 
+#ifdef ROS_DISTRO_JAZZY
+controller_interface::return_type MecanumDriveController::update_reference_from_subscribers(
+  const rclcpp::Time & /*time*/, const rclcpp::Duration & /*period*/)
+#else
 controller_interface::return_type MecanumDriveController::update_reference_from_subscribers()
+#endif
 {
   // Move functionality to the `update_and_write_commands` because of the missing arguments in
   // humble - otherwise issues with multiple time-sources might happen when working with simulators
@@ -420,10 +434,17 @@ controller_interface::return_type MecanumDriveController::update_and_write_comma
   }
 
   // FORWARD KINEMATICS (odometry).
+#ifdef ROS_DISTRO_JAZZY
+  double wheel_front_left_vel = state_interfaces_[0].get_optional<double>().value();
+  double wheel_back_left_vel = state_interfaces_[1].get_optional<double>().value();
+  double wheel_back_right_vel = state_interfaces_[2].get_optional<double>().value();
+  double wheel_front_right_vel = state_interfaces_[3].get_optional<double>().value();
+#else
   double wheel_front_left_vel = state_interfaces_[0].get_value();
   double wheel_back_left_vel = state_interfaces_[1].get_value();
   double wheel_back_right_vel = state_interfaces_[2].get_value();
   double wheel_front_right_vel = state_interfaces_[3].get_value();
+#endif
 
   if (
     !std::isnan(wheel_front_left_vel) && !std::isnan(wheel_back_left_vel) &&
@@ -436,7 +457,11 @@ controller_interface::return_type MecanumDriveController::update_and_write_comma
   }
 
   if (!params_.body_frame_control && !params_.body_frame_yaw_joint.empty() && state_interfaces_.size() >= 5){
+#ifdef ROS_DISTRO_JAZZY
+    const double theta = state_interfaces_[4].get_optional<double>().value();
+#else
     const double theta = state_interfaces_[4].get_value();
+#endif
     const double rotated_x = std::cos(-theta)*reference_interfaces_[0] - std::sin(-theta)*reference_interfaces_[1];
     const double rotated_y = std::sin(-theta)*reference_interfaces_[0] + std::cos(-theta)*reference_interfaces_[1];
     reference_interfaces_[0] = rotated_x;
@@ -495,19 +520,33 @@ controller_interface::return_type MecanumDriveController::update_and_write_comma
          velocity_in_center_frame_angular_z_);
 
     // Set wheels velocities:
+#ifdef ROS_DISTRO_JAZZY
+    std::ignore = command_interfaces_[0].set_value(w_front_left_vel);
+    std::ignore = command_interfaces_[1].set_value(w_back_left_vel);
+    std::ignore = command_interfaces_[2].set_value(w_back_right_vel);
+    std::ignore = command_interfaces_[3].set_value(w_front_right_vel);
+#else
     command_interfaces_[0].set_value(w_front_left_vel);
     command_interfaces_[1].set_value(w_back_left_vel);
     command_interfaces_[2].set_value(w_back_right_vel);
     command_interfaces_[3].set_value(w_front_right_vel);
+#endif
   }
   else
   {
     if(cmd_timeout_ < get_node()->now() - cmd_timestamp_)
     {
+#ifdef ROS_DISTRO_JAZZY
+      std::ignore = command_interfaces_[0].set_value(0.0);
+      std::ignore = command_interfaces_[1].set_value(0.0);
+      std::ignore = command_interfaces_[2].set_value(0.0);
+      std::ignore = command_interfaces_[3].set_value(0.0);
+#else
       command_interfaces_[0].set_value(0.0);
       command_interfaces_[1].set_value(0.0);
       command_interfaces_[2].set_value(0.0);
       command_interfaces_[3].set_value(0.0);
+#endif
     }
   }
 
@@ -543,10 +582,17 @@ controller_interface::return_type MecanumDriveController::update_and_write_comma
   if (controller_state_publisher_->trylock())
   {
     controller_state_publisher_->msg_.header.stamp = get_node()->now();
+#ifdef ROS_DISTRO_JAZZY
+    controller_state_publisher_->msg_.front_left_wheel_velocity = state_interfaces_[0].get_optional<double>().value();
+    controller_state_publisher_->msg_.back_left_wheel_velocity = state_interfaces_[1].get_optional<double>().value();
+    controller_state_publisher_->msg_.back_right_wheel_velocity = state_interfaces_[2].get_optional<double>().value();
+    controller_state_publisher_->msg_.front_right_wheel_velocity = state_interfaces_[3].get_optional<double>().value();
+#else
     controller_state_publisher_->msg_.front_left_wheel_velocity = state_interfaces_[0].get_value();
     controller_state_publisher_->msg_.back_left_wheel_velocity = state_interfaces_[1].get_value();
     controller_state_publisher_->msg_.back_right_wheel_velocity = state_interfaces_[2].get_value();
     controller_state_publisher_->msg_.front_right_wheel_velocity = state_interfaces_[3].get_value();
+#endif
     // controller_state_publisher_->msg_.front_left_wheel_velocity = command_interfaces_[0].get_value();
     // controller_state_publisher_->msg_.back_left_wheel_velocity = command_interfaces_[1].get_value();
     // controller_state_publisher_->msg_.back_right_wheel_velocity = command_interfaces_[2].get_value();

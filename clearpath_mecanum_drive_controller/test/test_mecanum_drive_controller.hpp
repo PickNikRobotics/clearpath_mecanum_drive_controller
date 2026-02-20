@@ -162,7 +162,13 @@ public:
 protected:
   void SetUpController(const std::string controller_name = "test_mecanum_drive_controller")
   {
+#ifdef ROS_DISTRO_JAZZY
+    controller_interface::ControllerInterfaceParams params;
+    params.controller_name = controller_name;
+    ASSERT_EQ(controller_->init(params), controller_interface::return_type::OK);
+#else
     ASSERT_EQ(controller_->init(controller_name), controller_interface::return_type::OK);
+#endif
 
     std::vector<hardware_interface::LoanedCommandInterface> command_ifs;
     command_itfs_.reserve(joint_command_values_.size());
@@ -193,7 +199,7 @@ protected:
   {
     // create a new subscriber
     rclcpp::Node test_subscription_node("test_subscription_node");
-    auto subs_callback = [&](const ControllerStateMsg::SharedPtr) {};
+    auto subs_callback = [&](const ControllerStateMsg::ConstSharedPtr) {};
     auto subscription = test_subscription_node.create_subscription<ControllerStateMsg>(
       "/test_mecanum_drive_controller/controller_state", 10, subs_callback);
     // call update to publish the test value

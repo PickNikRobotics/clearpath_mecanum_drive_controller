@@ -75,8 +75,14 @@ public:
   controller_interface::CallbackReturn on_deactivate(
     const rclcpp_lifecycle::State & previous_state) override;
 
+#ifdef ROS_DISTRO_JAZZY
+  CLEARATH_MECANUM_DRIVE_CONTROLLER__VISIBILITY_PUBLIC
+  controller_interface::return_type update_reference_from_subscribers(
+    const rclcpp::Time & time, const rclcpp::Duration & period) override;
+#else
   CLEARATH_MECANUM_DRIVE_CONTROLLER__VISIBILITY_PUBLIC
   controller_interface::return_type update_reference_from_subscribers() override;
+#endif
 
   CLEARATH_MECANUM_DRIVE_CONTROLLER__VISIBILITY_PUBLIC
   controller_interface::return_type update_and_write_commands(
@@ -132,8 +138,8 @@ protected:
 private:
   // callback for topic interface
   CLEARATH_MECANUM_DRIVE_CONTROLLER__VISIBILITY_LOCAL
-  void reference_callback(const std::shared_ptr<ControllerReferenceMsg> msg);
-  void reference_unstamped_callback(const std::shared_ptr<ControllerReferenceUnstampedMsg> msg);
+  void reference_callback(const std::shared_ptr<const ControllerReferenceMsg> msg);
+  void reference_unstamped_callback(const std::shared_ptr<const ControllerReferenceUnstampedMsg> msg);
 
   double velocity_in_center_frame_linear_x_;   // [m/s]
   double velocity_in_center_frame_linear_y_;   // [m/s]

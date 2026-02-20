@@ -5,6 +5,15 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "(GNU|Clang)")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
+# Detect ROS distro for API compatibility
+if(DEFINED ENV{ROS_DISTRO})
+  if("$ENV{ROS_DISTRO}" STREQUAL "jazzy")
+    add_compile_definitions(ROS_DISTRO_JAZZY)
+  elseif("$ENV{ROS_DISTRO}" STREQUAL "humble")
+    add_compile_definitions(ROS_DISTRO_HUMBLE)
+  endif()
+endif()
+
 # find dependencies
 set(THIS_PACKAGE_INCLUDE_DEPENDS
   controller_interface

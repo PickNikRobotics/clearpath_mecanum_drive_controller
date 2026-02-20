@@ -29,10 +29,19 @@ TEST(TestLoadMecanumDriveController, when_loading_controller_expect_no_exception
   std::shared_ptr<rclcpp::Executor> executor =
     std::make_shared<rclcpp::executors::SingleThreadedExecutor>();
 
+#ifdef ROS_DISTRO_JAZZY
+  controller_manager::ControllerManager cm(
+    std::make_unique<hardware_interface::ResourceManager>(
+      ros2_control_test_assets::minimal_robot_urdf,
+      std::make_shared<rclcpp::Clock>(RCL_ROS_TIME),
+      rclcpp::get_logger("test_controller_manager")),
+    executor, "test_controller_manager");
+#else
   controller_manager::ControllerManager cm(
     std::make_unique<hardware_interface::ResourceManager>(
       ros2_control_test_assets::minimal_robot_urdf),
     executor, "test_controller_manager");
+#endif
 
   ASSERT_NE(
     cm.load_controller(
